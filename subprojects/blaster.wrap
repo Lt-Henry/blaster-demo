@@ -1,0 +1,4 @@
+[wrap-git]
+directory=blaster
+url=https://github.com/Lt-Henry/blaster.git
+revision=head
