@@ -111,7 +111,7 @@ Mesh* load_obj(char* filename)
     return mesh;
 }
 
-bl_vbo_t* build_vbo(Mesh* mesh)
+bl_vbo_t* build_points_vbo(Mesh* mesh)
 {
     bl_vbo_t* vbo;
     
@@ -133,6 +133,44 @@ bl_vbo_t* build_vbo(Mesh* mesh)
     return vbo;
 }
 
+bl_vbo_t* build_lines_vbo(Mesh* mesh)
+{
+    bl_vbo_t* vbo;
+    
+    struct point_t {
+        bl_vector_t p;
+        bl_color_t c;
+    };
+    
+    vbo=bl_vbo_new(mesh->triangles.size()*6,sizeof(point_t));
+    
+    int m=0;
+    for (int n=0;n<mesh->triangles.size();n++) {
+        point_t point = {0};
+        
+        point.p=mesh->vertices[mesh->triangles[n].v[0]];
+        bl_vbo_set(vbo,m,&point);
+        
+        point.p=mesh->vertices[mesh->triangles[n].v[1]];
+        bl_vbo_set(vbo,m+1,&point);
+        
+        point.p=mesh->vertices[mesh->triangles[n].v[1]];
+        bl_vbo_set(vbo,m+2,&point);
+        
+        point.p=mesh->vertices[mesh->triangles[n].v[2]];
+        bl_vbo_set(vbo,m+3,&point);
+        
+        point.p=mesh->vertices[mesh->triangles[n].v[2]];
+        bl_vbo_set(vbo,m+4,&point);
+        
+        point.p=mesh->vertices[mesh->triangles[n].v[0]];
+        bl_vbo_set(vbo,m+5,&point);
+        
+        m+=6;
+    }
+    
+    return vbo;
+}
 
 int main(int argc,char* argv[])
 {
@@ -158,7 +196,7 @@ int main(int argc,char* argv[])
     bl_raster_set_clear_color(raster,&clear_color);
     bl_raster_clear(raster);
     
-    dino=build_vbo(mesh);
+    dino=build_lines_vbo(mesh);
     
     SDL_Init(SDL_INIT_EVERYTHING);
     window = SDL_CreateWindow("blaster", 100, 100, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
@@ -178,6 +216,8 @@ int main(int argc,char* argv[])
     float angle=0;
     float aspeed=0.1f;
     
+    float Z=-30;
+    
     bool quit_request=false;
     
     while(!quit_request) {
@@ -190,6 +230,17 @@ int main(int argc,char* argv[])
             case SDL_QUIT:
                 clog<<"quit request"<<endl;
                 quit_request=true;
+            break;
+            
+            case SDL_MOUSEWHEEL:
+                if (event.wheel.y>0) {
+                    Z+=10.0f;
+                }
+                
+                if (event.wheel.y<0) {
+                    Z+=-10.0f;
+                }
+                
             break;
 
             } // switch
@@ -207,15 +258,15 @@ int main(int argc,char* argv[])
         
         bl_matrix_stack_load_identity(raster->projection);
         bl_matrix_stack_frustum(raster->projection,
-        -1,1,-1,1,1,100);
+        -1,1,-1,1,1,1000);
         
         bl_matrix_stack_load_identity(raster->modelview);
-        bl_matrix_stack_translate(raster->modelview,0.0f,-2.0f,-20);
+        bl_matrix_stack_translate(raster->modelview,0.0f,0.0f,Z);
 
-        angle+=0.01f;
+        angle+=0.005f;
         bl_matrix_stack_rotate_y(raster->modelview,angle);
         
-        bl_raster_draw_points(raster,dino);
+        bl_raster_draw_lines(raster,dino);
         bl_raster_update(raster);
         
         SDL_Rect rect;
