@@ -94,13 +94,13 @@ Mesh* load_obj(char* filename)
             Triangle tri;
             
             vector<string> tmp2 = split(tmp[1],'/');
-            tri.v[0]=stoi(tmp2[0]);
+            tri.v[0]=stoi(tmp2[0])-1;
             
             tmp2 = split(tmp[2],'/');
-            tri.v[1]=stoi(tmp2[0]);
+            tri.v[1]=stoi(tmp2[0])-1;
             
             tmp2 = split(tmp[3],'/');
-            tri.v[2]=stoi(tmp2[0]);
+            tri.v[2]=stoi(tmp2[0])-1;
             
             mesh->triangles.push_back(tri);
         }
@@ -172,6 +172,13 @@ bl_vbo_t* build_lines_vbo(Mesh* mesh)
     return vbo;
 }
 
+void print_time(string name,double value,int fps)
+{
+    double f=1.0/1000.0;
+    double ratio = value/10000.0;
+    clog<<"* "<<name<<": "<<value*f<<" ms ["<<value*f/fps<<"] "<<ratio<<"%"<<endl;
+}
+
 int main(int argc,char* argv[])
 {
     SDL_Window* window;
@@ -208,10 +215,14 @@ int main(int argc,char* argv[])
     
     double dfps=0;
     int fps=0;
+    
+    double time_input=0;
     double time_clear=0;
-    double time_raster=0;
+    double time_raster_draw=0;
+    double time_raster_update=0;
     double time_upload=0;
     double time_present=0;
+    double time_total=0;
     
     float angle=0;
     float aspeed=0.1f;
@@ -223,6 +234,7 @@ int main(int argc,char* argv[])
     while(!quit_request) {
         SDL_Event event;
         
+        auto t0a = std::chrono::steady_clock::now();
         // eat events
         while(SDL_PollEvent(&event)) {
 
@@ -246,6 +258,8 @@ int main(int argc,char* argv[])
             } // switch
         } // while
         
+        auto t0b = std::chrono::steady_clock::now();
+        time_input+=std::chrono::duration_cast<std::chrono::microseconds>(t0b-t0a).count();
         
         //render here
         auto t1 = std::chrono::steady_clock::now();
@@ -253,8 +267,9 @@ int main(int argc,char* argv[])
         bl_raster_clear(raster);
         
         auto t2 = std::chrono::steady_clock::now();
-        time_clear+=std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count();
+        time_clear+=std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
         
+        auto t2a = std::chrono::steady_clock::now();
         
         bl_matrix_stack_load_identity(raster->projection);
         bl_matrix_stack_frustum(raster->projection,
@@ -266,8 +281,17 @@ int main(int argc,char* argv[])
         angle+=0.005f;
         bl_matrix_stack_rotate_y(raster->modelview,angle);
         
+        
         bl_raster_draw_lines(raster,dino);
+        
+        auto t2b = std::chrono::steady_clock::now();
+        
         bl_raster_update(raster);
+        
+        auto t2c = std::chrono::steady_clock::now();
+        
+        time_raster_draw+=std::chrono::duration_cast<std::chrono::microseconds>(t2b-t2a).count();
+        time_raster_update+=std::chrono::duration_cast<std::chrono::microseconds>(t2c-t2b).count();
         
         SDL_Rect rect;
 
@@ -281,30 +305,45 @@ int main(int argc,char* argv[])
         SDL_UpdateTexture(texture,&rect,(void*)raster->color_buffer->data,WIDTH*sizeof(uint32_t));
         
         auto t4 = std::chrono::steady_clock::now();
-        time_upload+=std::chrono::duration_cast<std::chrono::milliseconds>(t4-t3).count();
+        time_upload+=std::chrono::duration_cast<std::chrono::microseconds>(t4-t3).count();
         
         SDL_RenderCopy(renderer, texture, NULL, NULL);
         SDL_RenderPresent(renderer);
         
         auto t5 = std::chrono::steady_clock::now();
-        time_present+=std::chrono::duration_cast<std::chrono::milliseconds>(t5-t4).count();
+        time_present+=std::chrono::duration_cast<std::chrono::microseconds>(t5-t4).count();
+        time_total+=std::chrono::duration_cast<std::chrono::microseconds>(t5-t0a).count();
         
         fps++;
         dfps=std::chrono::duration_cast<std::chrono::milliseconds>(t5-tfps).count();
         
         if (dfps>1000) {
+            clog<<endl<<"****************"<<endl;
+            
+            
+            
             clog<<"fps: "<<fps<<endl;
-            clog<<"clear: "<<time_clear<<" ms"<<endl;
-            clog<<"upload: "<<time_upload<<" ms"<<endl;
-            clog<<"present: "<<time_present<<" ms"<<endl;
+            print_time("input",time_input,fps);
+            print_time("clear",time_clear,fps);
+            print_time("draw",time_raster_draw,fps);
+            print_time("update",time_raster_update,fps);
+            print_time("upload",time_upload,fps);
+            print_time("present",time_present,fps);
+            
+            clog<<"other: "<<(1000000-time_input-time_clear-time_raster_draw-time_raster_update-time_upload-time_present)/1000.0<<" ms"<<endl;
+            clog<<"total: "<<time_total/1000.0<<" ms"<<endl;
 
-            aspeed=((2.0f*3.14f)*fps)/1000.0f;
+            
 
             dfps=0;
             fps=0;
+            time_input=0;
+            time_raster_draw=0;
+            time_raster_update=0;
             time_clear=0;
             time_upload=0;
             time_present=0;
+            time_total=0;
             
             tfps = std::chrono::steady_clock::now();
         }
