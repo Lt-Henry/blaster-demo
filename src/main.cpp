@@ -9,6 +9,7 @@
 #include <fstream>
 #include <vector>
 #include <chrono>
+#include <list>
 
 using namespace std;
 
@@ -215,6 +216,9 @@ int main(int argc,char* argv[])
     
     double dfps=0;
     int fps=0;
+    int min_fps=100000;
+    int max_fps=0;
+    list<int> avg_fps;
     
     double time_input=0;
     double time_clear=0;
@@ -318,11 +322,36 @@ int main(int argc,char* argv[])
         dfps=std::chrono::duration_cast<std::chrono::milliseconds>(t5-tfps).count();
         
         if (dfps>1000) {
+        
+            if (fps>max_fps) {
+                max_fps=fps;
+            }
+            
+            if (fps<min_fps) {
+                min_fps=fps;
+            }
+            
+            avg_fps.push_front(fps);
+            
+            if (avg_fps.size()>32) {
+                avg_fps.pop_back();
+            }
+            
+            int avg=0;
+            auto it=avg_fps.begin();
+            while(it!=avg_fps.end()) {
+                avg+=*it;
+                it++;
+            }
+            
+            avg=avg/avg_fps.size();
+        
             clog<<endl<<"****************"<<endl;
             
-            
-            
             clog<<"fps: "<<fps<<endl;
+            clog<<"fps min: "<<min_fps<<endl;
+            clog<<"fps max: "<<max_fps<<endl;
+            clog<<"fps avg: "<<avg<<endl;
             print_time("input",time_input,fps);
             print_time("clear",time_clear,fps);
             print_time("draw",time_raster_draw,fps);
