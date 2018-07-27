@@ -1,9 +1,35 @@
 
+//#define BACKEND_GL
+
 #include <blaster/raster.h>
 #include <blaster/vector.h>
 #include <blaster/vbo.h>
 
 #include <SDL2/SDL.h>
+
+#ifdef BACKEND_GL
+    #include <GL/glew.h>
+    
+    const char* vertex_shader= " \
+    attribute vec4 in_vertex; \
+    \
+    uniform mat4 model;\
+    uniform mat4 view;\
+    uniform mat4 projection;\
+    \
+    void main()\
+    {\
+        gl_Position = projection * view * model * in_vertex;\
+    }";
+    
+    const char* fragment_shader = "\
+    \
+    void main()\
+    {\
+        gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\
+    }";
+    
+#endif
 
 #include <iostream>
 #include <fstream>
@@ -112,66 +138,131 @@ Mesh* load_obj(char* filename)
     return mesh;
 }
 
-bl_vbo_t* build_points_vbo(Mesh* mesh)
-{
-    bl_vbo_t* vbo;
+#ifdef BACKEND_GL
+    GLuint build_lines_vbo(Mesh* mesh)
+    {
     
-    struct point_t {
-        bl_vector_t p;
-        bl_color_t c;
-    };
-    
-    vbo=bl_vbo_new(mesh->vertices.size(),sizeof(point_t));
-    
-    for (int n=0;n<mesh->vertices.size();n++) {
-        struct point_t point = {0};
+        GLfloat* data = new GLfloat[mesh->triangles.size()*6*6];
         
-        point.p=mesh->vertices[n];
+        int m=0;
+        for (int n=0;n<mesh->triangles.size();n++) {
+            data[m+0]=mesh->vertices[mesh->triangles[n].v[0]].x;
+            data[m+1]=mesh->vertices[mesh->triangles[n].v[0]].y;
+            data[m+2]=mesh->vertices[mesh->triangles[n].v[0]].z;
+            data[m+3]=0.0f;
+            data[m+4]=0.0f;
+            data[m+5]=0.0f;
+            data[m+6]=mesh->vertices[mesh->triangles[n].v[1]].x;
+            data[m+7]=mesh->vertices[mesh->triangles[n].v[1]].y;
+            data[m+8]=mesh->vertices[mesh->triangles[n].v[1]].z;
+            data[m+9]=0.0f;
+            data[m+10]=0.0f;
+            data[m+11]=0.0f;
+            
+            data[m+12]=mesh->vertices[mesh->triangles[n].v[1]].x;
+            data[m+13]=mesh->vertices[mesh->triangles[n].v[1]].y;
+            data[m+14]=mesh->vertices[mesh->triangles[n].v[1]].z;
+            data[m+15]=0.0f;
+            data[m+16]=0.0f;
+            data[m+17]=0.0f;
+            data[m+18]=mesh->vertices[mesh->triangles[n].v[2]].x;
+            data[m+19]=mesh->vertices[mesh->triangles[n].v[2]].y;
+            data[m+20]=mesh->vertices[mesh->triangles[n].v[2]].z;
+            data[m+21]=0.0f;
+            data[m+22]=0.0f;
+            data[m+23]=0.0f;
+            
+            data[m+24]=mesh->vertices[mesh->triangles[n].v[2]].x;
+            data[m+25]=mesh->vertices[mesh->triangles[n].v[2]].y;
+            data[m+26]=mesh->vertices[mesh->triangles[n].v[2]].z;
+            data[m+27]=0.0f;
+            data[m+28]=0.0f;
+            data[m+29]=0.0f;
+            data[m+30]=mesh->vertices[mesh->triangles[n].v[0]].x;
+            data[m+31]=mesh->vertices[mesh->triangles[n].v[0]].y;
+            data[m+32]=mesh->vertices[mesh->triangles[n].v[0]].z;
+            data[m+33]=0.0f;
+            data[m+34]=0.0f;
+            data[m+35]=0.0f;
+            m+=36;
+        }
+    
+        GLuint vertexbuffer;
         
-        bl_vbo_set(vbo,n,&point);
+        glGenBuffers(1, &vertexbuffer);
+        
+        glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
+        
+        glBufferData(GL_ARRAY_BUFFER, mesh->triangles.size()*6*5, data, GL_STATIC_DRAW);
+        
+        delete data;
+        
+        return vertexbuffer;
     }
-    
-    return vbo;
-}
+#else
 
-bl_vbo_t* build_lines_vbo(Mesh* mesh)
-{
-    bl_vbo_t* vbo;
-    
-    struct point_t {
-        bl_vector_t p;
-        bl_color_t c;
-    };
-    
-    vbo=bl_vbo_new(mesh->triangles.size()*6,sizeof(point_t));
-    
-    int m=0;
-    for (int n=0;n<mesh->triangles.size();n++) {
-        point_t point = {0};
+    bl_vbo_t* build_points_vbo(Mesh* mesh)
+    {
+        bl_vbo_t* vbo;
         
-        point.p=mesh->vertices[mesh->triangles[n].v[0]];
-        bl_vbo_set(vbo,m,&point);
+        struct point_t {
+            bl_vector_t p;
+            bl_color_t c;
+        };
         
-        point.p=mesh->vertices[mesh->triangles[n].v[1]];
-        bl_vbo_set(vbo,m+1,&point);
+        vbo=bl_vbo_new(mesh->vertices.size(),sizeof(point_t));
         
-        point.p=mesh->vertices[mesh->triangles[n].v[1]];
-        bl_vbo_set(vbo,m+2,&point);
+        for (int n=0;n<mesh->vertices.size();n++) {
+            struct point_t point = {0};
+            
+            point.p=mesh->vertices[n];
+            
+            bl_vbo_set(vbo,n,&point);
+        }
         
-        point.p=mesh->vertices[mesh->triangles[n].v[2]];
-        bl_vbo_set(vbo,m+3,&point);
-        
-        point.p=mesh->vertices[mesh->triangles[n].v[2]];
-        bl_vbo_set(vbo,m+4,&point);
-        
-        point.p=mesh->vertices[mesh->triangles[n].v[0]];
-        bl_vbo_set(vbo,m+5,&point);
-        
-        m+=6;
+        return vbo;
     }
-    
-    return vbo;
-}
+
+    bl_vbo_t* build_lines_vbo(Mesh* mesh)
+    {
+        bl_vbo_t* vbo;
+        
+        struct point_t {
+            bl_vector_t p;
+            bl_color_t c;
+        };
+        
+        vbo=bl_vbo_new(mesh->triangles.size()*6,sizeof(point_t));
+        
+        int m=0;
+        for (int n=0;n<mesh->triangles.size();n++) {
+            point_t point = {0};
+            
+            point.p=mesh->vertices[mesh->triangles[n].v[0]];
+            bl_vbo_set(vbo,m,&point);
+            
+            point.p=mesh->vertices[mesh->triangles[n].v[1]];
+            bl_vbo_set(vbo,m+1,&point);
+            
+            point.p=mesh->vertices[mesh->triangles[n].v[1]];
+            bl_vbo_set(vbo,m+2,&point);
+            
+            point.p=mesh->vertices[mesh->triangles[n].v[2]];
+            bl_vbo_set(vbo,m+3,&point);
+            
+            point.p=mesh->vertices[mesh->triangles[n].v[2]];
+            bl_vbo_set(vbo,m+4,&point);
+            
+            point.p=mesh->vertices[mesh->triangles[n].v[0]];
+            bl_vbo_set(vbo,m+5,&point);
+            
+            m+=6;
+        }
+        
+        return vbo;
+    }
+#endif
+
 
 void print_time(string name,double value,int fps)
 {
@@ -185,9 +276,15 @@ int main(int argc,char* argv[])
     SDL_Window* window;
     SDL_Renderer* renderer;
     SDL_Texture* texture;
+    SDL_GLContext gl;
     
     bl_raster_t* raster;
-    bl_vbo_t* dino;
+    
+    #ifdef BACKEND_GL
+        GLuint vbo;
+    #else
+        bl_vbo_t* vbo;
+    #endif
     
     clog<<"Blaster-demo"<<endl;
     
@@ -198,18 +295,97 @@ int main(int argc,char* argv[])
     
     raster=bl_raster_new(WIDTH,HEIGHT);
     
-    bl_color_t clear_color;
-    bl_color_set(&clear_color,0.9,0.9,0.9,1.0);
+    #ifdef BACKEND_GL
     
-    bl_raster_set_clear_color(raster,&clear_color);
-    bl_raster_clear(raster);
+        
     
-    dino=build_lines_vbo(mesh);
+        SDL_Init(SDL_INIT_EVERYTHING);
+        
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+        
+        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+        SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+        
+        window = SDL_CreateWindow("blaster-gl", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+        
+        gl = SDL_GL_CreateContext(window);
+        
+        //disable vsync
+        SDL_GL_SetSwapInterval(0);
+        glewExperimental = GL_TRUE;
+        glewInit();
+        
+        GLuint VertexArrayID;
+        glGenVertexArrays(1, &VertexArrayID);
+        glBindVertexArray(VertexArrayID);
+        
+        clog<<"Creating shaders..."<<endl;
+        
+        GLuint v_shader_id = glCreateShader(GL_VERTEX_SHADER);
+        GLuint f_shader_id = glCreateShader(GL_FRAGMENT_SHADER);
+        
+        clog<<"compiling vertex shader..."<<endl;
+        glShaderSource(v_shader_id, 1, &vertex_shader , nullptr);
+        glCompileShader(v_shader_id);
+        
+        clog<<"compile fragment shader..."<<endl;
+        glShaderSource(f_shader_id, 1, &fragment_shader , nullptr);
+        glCompileShader(f_shader_id);
+
+        clog<<"linking..."<<endl;
+        GLuint program_id = glCreateProgram();
+        glAttachShader(program_id, v_shader_id);
+        glAttachShader(program_id, f_shader_id);
+        glLinkProgram(program_id);
+        
+        glDetachShader(program_id,v_shader_id);
+        glDetachShader(program_id,f_shader_id);
+        glDeleteShader(v_shader_id);
+        glDeleteShader(f_shader_id);
+
+        glClearColor ( 0.9, 0.9, 0.9, 1.0 );
     
-    SDL_Init(SDL_INIT_EVERYTHING);
-    window = SDL_CreateWindow("blaster", 100, 100, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    texture = SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, WIDTH,HEIGHT);
+        vbo=build_lines_vbo(mesh);
+        
+        glEnableVertexAttribArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glVertexAttribPointer(0,6, GL_FLOAT,GL_FALSE,0,(void*)0);
+
+        GLuint in_vertex;
+        
+        in_vertex=glGetAttribLocation(program_id,"in_vertex");
+        
+        GLuint model,view,projection;
+        
+        model=glGetUniformLocation(program_id,"model");
+        view=glGetUniformLocation(program_id,"view");
+        projection=glGetUniformLocation(program_id,"projection");
+        
+        
+    #else
+        SDL_Init(SDL_INIT_EVERYTHING);
+        window = SDL_CreateWindow("blaster", 100, 100, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
+        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+        texture = SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, WIDTH,HEIGHT);
+
+        
+        
+        
+        bl_color_t clear_color;
+        bl_color_set(&clear_color,0.9,0.9,0.9,1.0);
+        
+        bl_raster_set_clear_color(raster,&clear_color);
+        bl_raster_clear(raster);
+        
+        vbo=build_lines_vbo(mesh);
+    #endif
+
+ 
+    
+    
+    
     
     
     auto tfps = std::chrono::steady_clock::now();
@@ -268,7 +444,11 @@ int main(int argc,char* argv[])
         //render here
         auto t1 = std::chrono::steady_clock::now();
         
-        bl_raster_clear(raster);
+        #ifdef BACKEND_GL
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        #else
+            bl_raster_clear(raster);
+        #endif
         
         auto t2 = std::chrono::steady_clock::now();
         time_clear+=std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
@@ -285,12 +465,25 @@ int main(int argc,char* argv[])
         angle+=0.005f;
         bl_matrix_stack_rotate_y(raster->modelview,angle);
         
+        #ifdef BACKEND_GL
         
-        bl_raster_draw_lines(raster,dino);
+            glUseProgram(program_id);
+            
+            
+        
+            glDrawArrays(GL_LINES, 0, mesh->triangles.size()*3);
+            glDisableVertexAttribArray(0);
+        #else
+            bl_raster_draw_lines(raster,vbo);
+        #endif
         
         auto t2b = std::chrono::steady_clock::now();
         
-        bl_raster_update(raster);
+        #ifdef BACKEND_GL
+        
+        #else
+            bl_raster_update(raster);
+        #endif
         
         auto t2c = std::chrono::steady_clock::now();
         
@@ -306,13 +499,21 @@ int main(int argc,char* argv[])
 
         auto t3 = std::chrono::steady_clock::now();
         
-        SDL_UpdateTexture(texture,&rect,(void*)raster->color_buffer->data,WIDTH*sizeof(uint32_t));
+        #ifdef BACKEND_GL
+        
+        #else
+            SDL_UpdateTexture(texture,&rect,(void*)raster->color_buffer->data,WIDTH*sizeof(uint32_t));
+        #endif
         
         auto t4 = std::chrono::steady_clock::now();
         time_upload+=std::chrono::duration_cast<std::chrono::microseconds>(t4-t3).count();
         
-        SDL_RenderCopy(renderer, texture, NULL, NULL);
-        SDL_RenderPresent(renderer);
+        #ifdef BACKEND_GL
+            SDL_GL_SwapWindow(window);
+        #else
+            SDL_RenderCopy(renderer, texture, NULL, NULL);
+            SDL_RenderPresent(renderer);
+        #endif
         
         auto t5 = std::chrono::steady_clock::now();
         time_present+=std::chrono::duration_cast<std::chrono::microseconds>(t5-t4).count();
@@ -378,7 +579,17 @@ int main(int argc,char* argv[])
         }
     }
     
+    
+    
+    #ifdef BACKEND_GL
+        SDL_GL_DeleteContext(gl);
+
+    #endif
+    
     bl_raster_delete(raster);
+    
+    SDL_DestroyWindow(window);
+    SDL_Quit();
     
     return 0;
 }
