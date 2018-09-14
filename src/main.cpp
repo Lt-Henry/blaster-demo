@@ -11,15 +11,13 @@
     #include <GL/glew.h>
     
     const char* vertex_shader= " \
-    attribute vec4 in_vertex; \
     \
-    uniform mat4 model;\
-    uniform mat4 view;\
-    uniform mat4 projection;\
+    uniform mat4 in_matrix;\
+    in vec4 in_vertex;\
     \
     void main()\
     {\
-        gl_Position = projection * view * model * in_vertex;\
+        gl_Position = in_matrix * in_vertex;\
     }";
     
     const char* fragment_shader = "\
@@ -302,7 +300,7 @@ int main(int argc,char* argv[])
         SDL_Init(SDL_INIT_EVERYTHING);
         
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
         
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
         SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
@@ -330,10 +328,25 @@ int main(int argc,char* argv[])
         glShaderSource(v_shader_id, 1, &vertex_shader , nullptr);
         glCompileShader(v_shader_id);
         
-        clog<<"compile fragment shader..."<<endl;
+        GLint success = 0;
+        glGetShaderiv(v_shader_id, GL_COMPILE_STATUS, &success);
+        
+        if (success==GL_FALSE) {
+            clog<<"Failed to compile vertex shader"<<endl;
+        }
+        
+        clog<<"compiling fragment shader..."<<endl;
         glShaderSource(f_shader_id, 1, &fragment_shader , nullptr);
         glCompileShader(f_shader_id);
+        
+        glGetShaderiv(f_shader_id, GL_COMPILE_STATUS, &success);
+        
+        if (success==GL_FALSE) {
+            clog<<"Failed to compile fragment shader"<<endl;
+        }
 
+        glBindAttribLocation(v_shader_id,0,"in_vertex");
+        
         clog<<"linking..."<<endl;
         GLuint program_id = glCreateProgram();
         glAttachShader(program_id, v_shader_id);
@@ -353,15 +366,10 @@ int main(int argc,char* argv[])
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glVertexAttribPointer(0,6, GL_FLOAT,GL_FALSE,0,(void*)0);
 
-        GLuint in_vertex;
+        //GLuint in_vertex;
         
-        in_vertex=glGetAttribLocation(program_id,"in_vertex");
+        //in_vertex=glGetAttribLocation(program_id,"in_vertex");
         
-        GLuint model,view,projection;
-        
-        model=glGetUniformLocation(program_id,"model");
-        view=glGetUniformLocation(program_id,"view");
-        projection=glGetUniformLocation(program_id,"projection");
         
         
     #else
@@ -466,10 +474,16 @@ int main(int argc,char* argv[])
         bl_matrix_stack_rotate_y(raster->modelview,angle);
         
         #ifdef BACKEND_GL
+            bl_matrix_t matrix;
+    
+            // precompute modelview and projection matrix
+            bl_matrix_mult(&matrix,raster->projection->matrix,raster->modelview->matrix);
+            
         
             glUseProgram(program_id);
             
-            
+            GLuint matrix_id = glGetUniformLocation(program_id, "in_matrix");
+            glUniformMatrix4fv(matrix_id, 1, GL_FALSE, matrix.data);
         
             glDrawArrays(GL_LINES, 0, mesh->triangles.size()*3);
             glDisableVertexAttribArray(0);
