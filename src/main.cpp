@@ -7,26 +7,11 @@
 
 #include <SDL2/SDL.h>
 
+#include <iostream>
+#include <string>
+
 #ifdef BACKEND_GL
     #include <GL/glew.h>
-    
-    const char* vertex_shader= " \
-    \
-    uniform mat4 in_matrix;\
-    in vec4 in_vertex;\
-    \
-    void main()\
-    {\
-        gl_Position = in_matrix * in_vertex;\
-    }";
-    
-    const char* fragment_shader = "\
-    \
-    void main()\
-    {\
-        gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\
-    }";
-    
 #endif
 
 #include <iostream>
@@ -136,130 +121,68 @@ Mesh* load_obj(char* filename)
     return mesh;
 }
 
-#ifdef BACKEND_GL
-    GLuint build_lines_vbo(Mesh* mesh)
-    {
-    
-        GLfloat* data = new GLfloat[mesh->triangles.size()*6*6];
-        
-        int m=0;
-        for (int n=0;n<mesh->triangles.size();n++) {
-            data[m+0]=mesh->vertices[mesh->triangles[n].v[0]].x;
-            data[m+1]=mesh->vertices[mesh->triangles[n].v[0]].y;
-            data[m+2]=mesh->vertices[mesh->triangles[n].v[0]].z;
-            data[m+3]=0.0f;
-            data[m+4]=0.0f;
-            data[m+5]=0.0f;
-            data[m+6]=mesh->vertices[mesh->triangles[n].v[1]].x;
-            data[m+7]=mesh->vertices[mesh->triangles[n].v[1]].y;
-            data[m+8]=mesh->vertices[mesh->triangles[n].v[1]].z;
-            data[m+9]=0.0f;
-            data[m+10]=0.0f;
-            data[m+11]=0.0f;
-            
-            data[m+12]=mesh->vertices[mesh->triangles[n].v[1]].x;
-            data[m+13]=mesh->vertices[mesh->triangles[n].v[1]].y;
-            data[m+14]=mesh->vertices[mesh->triangles[n].v[1]].z;
-            data[m+15]=0.0f;
-            data[m+16]=0.0f;
-            data[m+17]=0.0f;
-            data[m+18]=mesh->vertices[mesh->triangles[n].v[2]].x;
-            data[m+19]=mesh->vertices[mesh->triangles[n].v[2]].y;
-            data[m+20]=mesh->vertices[mesh->triangles[n].v[2]].z;
-            data[m+21]=0.0f;
-            data[m+22]=0.0f;
-            data[m+23]=0.0f;
-            
-            data[m+24]=mesh->vertices[mesh->triangles[n].v[2]].x;
-            data[m+25]=mesh->vertices[mesh->triangles[n].v[2]].y;
-            data[m+26]=mesh->vertices[mesh->triangles[n].v[2]].z;
-            data[m+27]=0.0f;
-            data[m+28]=0.0f;
-            data[m+29]=0.0f;
-            data[m+30]=mesh->vertices[mesh->triangles[n].v[0]].x;
-            data[m+31]=mesh->vertices[mesh->triangles[n].v[0]].y;
-            data[m+32]=mesh->vertices[mesh->triangles[n].v[0]].z;
-            data[m+33]=0.0f;
-            data[m+34]=0.0f;
-            data[m+35]=0.0f;
-            m+=36;
-        }
-    
-        GLuint vertexbuffer;
-        
-        glGenBuffers(1, &vertexbuffer);
-        
-        glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-        
-        glBufferData(GL_ARRAY_BUFFER, mesh->triangles.size()*6*5, data, GL_STATIC_DRAW);
-        
-        delete data;
-        
-        return vertexbuffer;
-    }
-#else
 
-    bl_vbo_t* build_points_vbo(Mesh* mesh)
-    {
-        bl_vbo_t* vbo;
-        
-        struct point_t {
-            bl_vector_t p;
-            bl_color_t c;
-        };
-        
-        vbo=bl_vbo_new(mesh->vertices.size(),sizeof(point_t));
-        
-        for (int n=0;n<mesh->vertices.size();n++) {
-            struct point_t point = {0};
-            
-            point.p=mesh->vertices[n];
-            
-            bl_vbo_set(vbo,n,&point);
-        }
-        
-        return vbo;
-    }
 
-    bl_vbo_t* build_lines_vbo(Mesh* mesh)
-    {
-        bl_vbo_t* vbo;
+bl_vbo_t* build_points_vbo(Mesh* mesh)
+{
+    bl_vbo_t* vbo;
+    
+    struct point_t {
+        bl_vector_t p;
+        bl_color_t c;
+    };
+    
+    vbo=bl_vbo_new(mesh->vertices.size(),sizeof(point_t));
+    
+    for (int n=0;n<mesh->vertices.size();n++) {
+        struct point_t point = {0};
         
-        struct point_t {
-            bl_vector_t p;
-            bl_color_t c;
-        };
+        point.p=mesh->vertices[n];
         
-        vbo=bl_vbo_new(mesh->triangles.size()*6,sizeof(point_t));
-        
-        int m=0;
-        for (int n=0;n<mesh->triangles.size();n++) {
-            point_t point = {0};
-            
-            point.p=mesh->vertices[mesh->triangles[n].v[0]];
-            bl_vbo_set(vbo,m,&point);
-            
-            point.p=mesh->vertices[mesh->triangles[n].v[1]];
-            bl_vbo_set(vbo,m+1,&point);
-            
-            point.p=mesh->vertices[mesh->triangles[n].v[1]];
-            bl_vbo_set(vbo,m+2,&point);
-            
-            point.p=mesh->vertices[mesh->triangles[n].v[2]];
-            bl_vbo_set(vbo,m+3,&point);
-            
-            point.p=mesh->vertices[mesh->triangles[n].v[2]];
-            bl_vbo_set(vbo,m+4,&point);
-            
-            point.p=mesh->vertices[mesh->triangles[n].v[0]];
-            bl_vbo_set(vbo,m+5,&point);
-            
-            m+=6;
-        }
-        
-        return vbo;
+        bl_vbo_set(vbo,n,&point);
     }
-#endif
+    
+    return vbo;
+}
+
+bl_vbo_t* build_lines_vbo(Mesh* mesh)
+{
+    bl_vbo_t* vbo;
+    
+    struct point_t {
+        bl_vector_t p;
+        bl_color_t c;
+    };
+    
+    vbo=bl_vbo_new(mesh->triangles.size()*6,sizeof(point_t));
+    
+    int m=0;
+    for (int n=0;n<mesh->triangles.size();n++) {
+        point_t point = {0};
+        
+        point.p=mesh->vertices[mesh->triangles[n].v[0]];
+        bl_vbo_set(vbo,m,&point);
+        
+        point.p=mesh->vertices[mesh->triangles[n].v[1]];
+        bl_vbo_set(vbo,m+1,&point);
+        
+        point.p=mesh->vertices[mesh->triangles[n].v[1]];
+        bl_vbo_set(vbo,m+2,&point);
+        
+        point.p=mesh->vertices[mesh->triangles[n].v[2]];
+        bl_vbo_set(vbo,m+3,&point);
+        
+        point.p=mesh->vertices[mesh->triangles[n].v[2]];
+        bl_vbo_set(vbo,m+4,&point);
+        
+        point.p=mesh->vertices[mesh->triangles[n].v[0]];
+        bl_vbo_set(vbo,m+5,&point);
+        
+        m+=6;
+    }
+    
+    return vbo;
+}
 
 
 void print_time(string name,double value,int fps)
@@ -278,11 +201,9 @@ int main(int argc,char* argv[])
     
     bl_raster_t* raster;
     
-    #ifdef BACKEND_GL
-        GLuint vbo;
-    #else
-        bl_vbo_t* vbo;
-    #endif
+    
+    bl_vbo_t* vbo;
+    
     
     clog<<"Blaster-demo"<<endl;
     
@@ -295,12 +216,10 @@ int main(int argc,char* argv[])
     
     #ifdef BACKEND_GL
     
-        
-    
         SDL_Init(SDL_INIT_EVERYTHING);
         
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
         
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
         SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
@@ -310,66 +229,18 @@ int main(int argc,char* argv[])
         
         gl = SDL_GL_CreateContext(window);
         
+        glViewport(0,0,WIDTH,HEIGHT);
+        
+        
         //disable vsync
         SDL_GL_SetSwapInterval(0);
         glewExperimental = GL_TRUE;
         glewInit();
         
-        GLuint VertexArrayID;
-        glGenVertexArrays(1, &VertexArrayID);
-        glBindVertexArray(VertexArrayID);
-        
-        clog<<"Creating shaders..."<<endl;
-        
-        GLuint v_shader_id = glCreateShader(GL_VERTEX_SHADER);
-        GLuint f_shader_id = glCreateShader(GL_FRAGMENT_SHADER);
-        
-        clog<<"compiling vertex shader..."<<endl;
-        glShaderSource(v_shader_id, 1, &vertex_shader , nullptr);
-        glCompileShader(v_shader_id);
-        
-        GLint success = 0;
-        glGetShaderiv(v_shader_id, GL_COMPILE_STATUS, &success);
-        
-        if (success==GL_FALSE) {
-            clog<<"Failed to compile vertex shader"<<endl;
-        }
-        
-        clog<<"compiling fragment shader..."<<endl;
-        glShaderSource(f_shader_id, 1, &fragment_shader , nullptr);
-        glCompileShader(f_shader_id);
-        
-        glGetShaderiv(f_shader_id, GL_COMPILE_STATUS, &success);
-        
-        if (success==GL_FALSE) {
-            clog<<"Failed to compile fragment shader"<<endl;
-        }
 
-        glBindAttribLocation(v_shader_id,0,"in_vertex");
-        
-        clog<<"linking..."<<endl;
-        GLuint program_id = glCreateProgram();
-        glAttachShader(program_id, v_shader_id);
-        glAttachShader(program_id, f_shader_id);
-        glLinkProgram(program_id);
-        
-        glDetachShader(program_id,v_shader_id);
-        glDetachShader(program_id,f_shader_id);
-        glDeleteShader(v_shader_id);
-        glDeleteShader(f_shader_id);
-
-        glClearColor ( 0.9, 0.9, 0.9, 1.0 );
+        glClearColor ( 0.9, 0.9, 0.7, 1.0 );
     
         vbo=build_lines_vbo(mesh);
-        
-        glEnableVertexAttribArray(0);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glVertexAttribPointer(0,6, GL_FLOAT,GL_FALSE,0,(void*)0);
-
-        //GLuint in_vertex;
-        
-        //in_vertex=glGetAttribLocation(program_id,"in_vertex");
-        
         
         
     #else
@@ -390,11 +261,7 @@ int main(int argc,char* argv[])
         vbo=build_lines_vbo(mesh);
     #endif
 
- 
-    
-    
-    
-    
+
     
     auto tfps = std::chrono::steady_clock::now();
     
@@ -474,19 +341,31 @@ int main(int argc,char* argv[])
         bl_matrix_stack_rotate_y(raster->modelview,angle);
         
         #ifdef BACKEND_GL
-            bl_matrix_t matrix;
-    
-            // precompute modelview and projection matrix
-            bl_matrix_mult(&matrix,raster->projection->matrix,raster->modelview->matrix);
+
             
-        
-            glUseProgram(program_id);
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+            glFrustum(-1,1,-1,1,1,1000);
             
-            GLuint matrix_id = glGetUniformLocation(program_id, "in_matrix");
-            glUniformMatrix4fv(matrix_id, 1, GL_FALSE, matrix.data);
-        
-            glDrawArrays(GL_LINES, 0, mesh->triangles.size()*3);
-            glDisableVertexAttribArray(0);
+            glMatrixMode(GL_MODELVIEW);
+            glLoadIdentity();
+            glTranslatef(0,0,Z);
+            glRotatef(angle/3.1416f*180.0f,0,1,0);
+            
+            float* p=(float*)vbo->data;
+            
+            glBegin(GL_LINES);
+                glColor3ub(0,0,0);
+                for (int n=0;n<vbo->size;n+=2) {
+                    glVertex3f(p[0],p[1],p[2]);
+                    p+=8;
+                    glVertex3f(p[0],p[1],p[2]);
+                    p+=8;
+                }
+            
+            glEnd();
+            
+            
         #else
             bl_raster_draw_lines(raster,vbo);
         #endif
