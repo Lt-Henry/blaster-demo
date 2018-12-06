@@ -25,6 +25,12 @@ using namespace std;
 #define WIDTH 800
 #define HEIGHT 600
 
+enum class RenderMode {
+    Points,
+    Lines,
+    Triangles
+};
+
 struct Triangle
 {
     int v[3];
@@ -184,6 +190,106 @@ bl_vbo_t* build_lines_vbo(Mesh* mesh)
     return vbo;
 }
 
+bl_vbo_t* build_triangles_vbo(Mesh* mesh)
+{
+    bl_vbo_t* vbo;
+    
+    struct point_t {
+        bl_vector_t p;
+        bl_vector_t n;
+        bl_color_t c;
+    };
+    
+    vbo=bl_vbo_new(mesh->triangles.size()*3,sizeof(point_t));
+    
+    int m=0;
+    for (int n=0;n<mesh->triangles.size();n++) {
+        point_t point = {0};
+        
+        point.p=mesh->vertices[mesh->triangles[n].v[0]];
+        point.n=mesh->normals[mesh->triangles[n].n[0]];
+        bl_vbo_set(vbo,m,&point);
+        
+        point.p=mesh->vertices[mesh->triangles[n].v[1]];
+        point.n=mesh->normals[mesh->triangles[n].n[1]];
+        bl_vbo_set(vbo,m,&point);
+
+        point.p=mesh->vertices[mesh->triangles[n].v[2]];
+        point.n=mesh->normals[mesh->triangles[n].n[2]];
+        bl_vbo_set(vbo,m,&point);
+
+        
+        m+=3;
+    }
+    
+    return vbo;
+}
+
+#ifdef BACKEND_GL
+
+void gl_render_points(bl_vbo_t* vbo)
+{
+    float* p=(float*)vbo->data;
+
+    glBegin(GL_POINTS);
+        
+    for (int n=0;n<vbo->size;n++) {
+        glVertex3fv(p);
+        glColor3fv(p+4);
+        p+=8;
+    }
+    
+    glEnd();
+}
+
+void gl_render_lines(bl_vbo_t* vbo)
+{
+    float* p=(float*)vbo->data;
+
+    glBegin(GL_LINES);
+        
+        for (int n=0;n<vbo->size;n+=2) {
+            glVertex3fv(p);
+            glColor3fv(p+4);
+            p+=8;
+            
+            glVertex3fv(p);
+            glColor3fv(p+4);
+            p+=8;
+
+        }
+
+    glEnd();
+}
+
+void gl_render_triangles(bl_vbo_t* vbo)
+{
+    float* p=(float*)vbo->data;
+    
+    glBegin(GL_TRIANGLES);
+    for (int n=0;n<vbo->size;n+=3) {
+        glVertex3fv(p);
+        glNormal3fv(p+4);
+        glColor3fv(p+8);
+        
+        p+=12;
+        
+        glVertex3fv(p);
+        glNormal3fv(p+4);
+        glColor3fv(p+8);
+        
+        p+=12;
+        
+        glVertex3fv(p);
+        glNormal3fv(p+4);
+        glColor3fv(p+8);
+        
+        p+=12;
+    }
+    glEnd();
+}
+
+#endif
 
 void print_time(string name,double value,int fps)
 {
@@ -200,9 +306,9 @@ int main(int argc,char* argv[])
     SDL_GLContext gl;
     
     bl_raster_t* raster;
-    
-    
     bl_vbo_t* vbo;
+    
+    RenderMode mode = RenderMode::Points;
     
     
     clog<<"Blaster-demo"<<endl;
@@ -240,7 +346,21 @@ int main(int argc,char* argv[])
 
         glClearColor ( 0.9, 0.9, 0.7, 1.0 );
     
-        vbo=build_lines_vbo(mesh);
+        switch (mode) {
+            case RenderMode::Points:
+                vbo=build_points_vbo(mesh);
+            break;
+            
+            case RenderMode::Lines:
+                vbo=build_lines_vbo(mesh);
+            break;
+            
+            case RenderMode::Triangles:
+            
+            break;
+        
+        }
+        
         
         
     #else
@@ -352,22 +472,38 @@ int main(int argc,char* argv[])
             glTranslatef(0,0,Z);
             glRotatef(angle/3.1416f*180.0f,0,1,0);
             
-            float* p=(float*)vbo->data;
-            
-            glBegin(GL_LINES);
-                glColor3ub(0,0,0);
-                for (int n=0;n<vbo->size;n+=2) {
-                    glVertex3f(p[0],p[1],p[2]);
-                    p+=8;
-                    glVertex3f(p[0],p[1],p[2]);
-                    p+=8;
-                }
-            
-            glEnd();
+            switch (mode) {
+                case RenderMode::Points:
+                    gl_render_points(vbo);
+                break;
+                
+                case RenderMode::Lines:
+                    gl_render_lines(vbo);
+                break;
+                
+                case RenderMode::Triangles:
+                
+                break;
+        
+            }
             
             
         #else
-            bl_raster_draw_lines(raster,vbo);
+            
+            switch (mode) {
+                case RenderMode::Points:
+                    bl_raster_draw_points(raster,vbo);
+                break;
+                
+                case RenderMode::Lines:
+                    bl_raster_draw_lines(raster,vbo);
+                break;
+                
+                case RenderMode::Triangles:
+                
+                break;
+        
+            }
         #endif
         
         auto t2b = std::chrono::steady_clock::now();
