@@ -356,7 +356,7 @@ int main(int argc,char* argv[])
             break;
             
             case RenderMode::Triangles:
-            
+                vbo=build_triangles_vbo(mesh);
             break;
         
         }
@@ -482,7 +482,7 @@ int main(int argc,char* argv[])
                 break;
                 
                 case RenderMode::Triangles:
-                
+                    gl_render_triangles(vbo);
                 break;
         
             }
@@ -500,7 +500,7 @@ int main(int argc,char* argv[])
                 break;
                 
                 case RenderMode::Triangles:
-                
+                    bl_raster_draw_triangles(raster,vbo);
                 break;
         
             }
