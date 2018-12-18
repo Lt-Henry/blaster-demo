@@ -492,15 +492,15 @@ int main(int argc,char* argv[])
             
             switch (mode) {
                 case RenderMode::Points:
-                    bl_raster_draw_points(raster,vbo);
+                    bl_raster_draw(raster,vbo,BL_VBO_POINTS);
                 break;
                 
                 case RenderMode::Lines:
-                    bl_raster_draw_lines(raster,vbo);
+                    bl_raster_draw(raster,vbo,BL_VBO_LINES);
                 break;
                 
                 case RenderMode::Triangles:
-                    bl_raster_draw_triangles(raster,vbo);
+                    bl_raster_draw(raster,vbo,BL_VBO_TRIANGLES);
                 break;
         
             }
