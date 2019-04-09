@@ -319,8 +319,23 @@ int main(int argc,char* argv[])
     clog<<"triangles: "<<mesh->triangles.size()<<endl;
     
     raster=bl_raster_new(WIDTH,HEIGHT);
+
+    switch (mode) {
+        case RenderMode::Points:
+            vbo=build_points_vbo(mesh);
+        break;
+        
+        case RenderMode::Lines:
+            vbo=build_lines_vbo(mesh);
+        break;
+        
+        case RenderMode::Triangles:
+            vbo=build_triangles_vbo(mesh);
+        break;
     
-    #ifdef BACKEND_GL
+    }
+
+        #ifdef BACKEND_GL
     
         SDL_Init(SDL_INIT_EVERYTHING);
         
@@ -337,51 +352,24 @@ int main(int argc,char* argv[])
         
         glViewport(0,0,WIDTH,HEIGHT);
         
-        
         //disable vsync
         SDL_GL_SetSwapInterval(0);
         glewExperimental = GL_TRUE;
         glewInit();
         
-
         glClearColor ( 0.9, 0.9, 0.7, 1.0 );
-    
-        switch (mode) {
-            case RenderMode::Points:
-                vbo=build_points_vbo(mesh);
-            break;
-            
-            case RenderMode::Lines:
-                vbo=build_lines_vbo(mesh);
-            break;
-            
-            case RenderMode::Triangles:
-                vbo=build_triangles_vbo(mesh);
-            break;
-        
-        }
-        
-        
         
     #else
         SDL_Init(SDL_INIT_EVERYTHING);
         window = SDL_CreateWindow("blaster", 100, 100, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
         texture = SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, WIDTH,HEIGHT);
-
-        
-        
         
         bl_color_t clear_color;
         bl_color_set(&clear_color,0.9,0.9,0.9,1.0);
         
         bl_raster_set_clear_color(raster,&clear_color);
-        bl_raster_clear(raster);
-        
-        vbo=build_lines_vbo(mesh);
     #endif
-
-
     
     auto tfps = std::chrono::steady_clock::now();
     
