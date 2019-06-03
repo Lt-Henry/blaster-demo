@@ -140,7 +140,7 @@ bl_vbo_t* build_points_vbo(Mesh* mesh)
     
     vbo=bl_vbo_new(mesh->vertices.size(),sizeof(point_t));
     
-    for (int n=0;n<mesh->vertices.size();n++) {
+    for (size_t n=0;n<mesh->vertices.size();n++) {
         struct point_t point = {0};
         
         point.p=mesh->vertices[n];
@@ -163,7 +163,7 @@ bl_vbo_t* build_lines_vbo(Mesh* mesh)
     vbo=bl_vbo_new(mesh->triangles.size()*6,sizeof(point_t));
     
     int m=0;
-    for (int n=0;n<mesh->triangles.size();n++) {
+    for (size_t n=0;n<mesh->triangles.size();n++) {
         point_t point = {0};
         
         point.p=mesh->vertices[mesh->triangles[n].v[0]];
@@ -203,7 +203,7 @@ bl_vbo_t* build_triangles_vbo(Mesh* mesh)
     vbo=bl_vbo_new(mesh->triangles.size()*3,sizeof(point_t));
     
     int m=0;
-    for (int n=0;n<mesh->triangles.size();n++) {
+    for (size_t n=0;n<mesh->triangles.size();n++) {
         point_t point = {0};
         
         point.p=mesh->vertices[mesh->triangles[n].v[0]];
