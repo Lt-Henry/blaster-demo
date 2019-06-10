@@ -308,7 +308,7 @@ int main(int argc,char* argv[])
     bl_raster_t* raster;
     bl_vbo_t* vbo;
     
-    RenderMode mode = RenderMode::Points;
+    RenderMode mode = RenderMode::Lines;
     
     
     clog<<"Blaster-demo"<<endl;
@@ -492,6 +492,7 @@ int main(int argc,char* argv[])
                 break;
         
             }
+        //bl_raster_flush_draw(raster);
         #endif
         
         auto t2b = std::chrono::steady_clock::now();
@@ -500,6 +501,7 @@ int main(int argc,char* argv[])
         
         #else
             bl_raster_update(raster);
+            //bl_raster_flush_update(raster);
         #endif
         
         auto t2c = std::chrono::steady_clock::now();
