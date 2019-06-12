@@ -492,7 +492,7 @@ int main(int argc,char* argv[])
                 break;
         
             }
-        //bl_raster_flush_draw(raster);
+        bl_raster_flush_draw(raster);
         #endif
         
         auto t2b = std::chrono::steady_clock::now();
