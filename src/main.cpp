@@ -1,5 +1,5 @@
 
-//#define BACKEND_GL
+#define BACKEND_GL
 
 #include <blaster/raster.h>
 #include <blaster/vector.h>
@@ -54,21 +54,15 @@ vector<string> split(string line,char sep=' ')
     for (char c : line) {
 
         if (c==sep) {
-            if (knee==true) {
-                tokens.push_back(tmp);
-                knee=false;
-                tmp="";
-            }
+            tokens.push_back(tmp);
+            tmp="";
         }
         else {
             tmp=tmp+c;
-            knee=true;
         }
     }
 
-    if (tmp!="") {
-        tokens.push_back(tmp);
-    }
+    tokens.push_back(tmp);
     
     return tokens;
 }
@@ -106,17 +100,32 @@ Mesh* load_obj(char* filename)
             mesh->vertices.push_back(v);
         }
         
+        if (tmp[0]=="vn") {
+            bl_vector_t n;
+            
+            n.x=stof(tmp[1]);
+            n.y=stof(tmp[2]);
+            n.z=stof(tmp[3]);
+            n.w=0;
+            
+            mesh->normals.push_back(n);
+        }
+        
         if (tmp[0]=="f") {
             Triangle tri;
             
             vector<string> tmp2 = split(tmp[1],'/');
+            //clog<<">>"<<tmp2[0]<<","<<tmp2[1]<<endl;
             tri.v[0]=stoi(tmp2[0])-1;
+            tri.n[0]=stoi(tmp2[2])-1;
             
             tmp2 = split(tmp[2],'/');
             tri.v[1]=stoi(tmp2[0])-1;
+            tri.n[1]=stoi(tmp2[2])-1;
             
             tmp2 = split(tmp[3],'/');
             tri.v[2]=stoi(tmp2[0])-1;
+            tri.n[2]=stoi(tmp2[2])-1;
             
             mesh->triangles.push_back(tri);
         }
@@ -212,11 +221,11 @@ bl_vbo_t* build_triangles_vbo(Mesh* mesh)
         
         point.p=mesh->vertices[mesh->triangles[n].v[1]];
         point.n=mesh->normals[mesh->triangles[n].n[1]];
-        bl_vbo_set(vbo,m,&point);
+        bl_vbo_set(vbo,m+1,&point);
 
         point.p=mesh->vertices[mesh->triangles[n].v[2]];
         point.n=mesh->normals[mesh->triangles[n].n[2]];
-        bl_vbo_set(vbo,m,&point);
+        bl_vbo_set(vbo,m+2,&point);
 
         
         m+=3;
@@ -308,7 +317,7 @@ int main(int argc,char* argv[])
     bl_raster_t* raster;
     bl_vbo_t* vbo;
     
-    RenderMode mode = RenderMode::Lines;
+    RenderMode mode = RenderMode::Triangles;
     
     
     clog<<"Blaster-demo"<<endl;
