@@ -1,5 +1,5 @@
 
-#define BACKEND_GL
+//#define BACKEND_GL
 
 #include <blaster/raster.h>
 #include <blaster/vector.h>
