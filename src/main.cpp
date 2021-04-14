@@ -4,6 +4,7 @@
 #include <blaster/raster.h>
 #include <blaster/vector.h>
 #include <blaster/vbo.h>
+#include <blaster/time.h>
 
 #include <SDL2/SDL.h>
 
@@ -43,6 +44,13 @@ struct Mesh
     vector<bl_vector_t> normals;
     vector<Triangle> triangles;
 };
+
+std::ostream& operator<<(std::ostream& os,Triangle& t)
+{
+    os<<"("<<t.v[0]<<" "<<t.v[1]<<" "<<t.v[2]<<") ("<<t.n[0]<<" "<<t.n[1]<<" "<<t.n[2]<<")";
+    
+    return os;
+}
 
 vector<string> split(string line,char sep=' ')
 {
@@ -128,6 +136,11 @@ Mesh* load_obj(char* filename)
             tri.n[2]=stoi(tmp2[2])-1;
             
             mesh->triangles.push_back(tri);
+            /*
+            clog<<mesh->normals[tri.n[0]].x<<","<<mesh->normals[tri.n[0]].y<<","<<mesh->normals[tri.n[0]].z<<endl;
+            clog<<mesh->normals[tri.n[1]].x<<","<<mesh->normals[tri.n[1]].y<<","<<mesh->normals[tri.n[1]].z<<endl;
+            clog<<mesh->normals[tri.n[2]].x<<","<<mesh->normals[tri.n[2]].y<<","<<mesh->normals[tri.n[2]].z<<endl;
+            */
         }
     }
     
@@ -318,7 +331,7 @@ int main(int argc,char* argv[])
     bl_vbo_t* vbo;
     
     RenderMode mode = RenderMode::Triangles;
-    
+    //RenderMode mode = RenderMode::Lines;
     
     clog<<"Blaster-demo"<<endl;
     
@@ -327,7 +340,7 @@ int main(int argc,char* argv[])
     clog<<"vertices: "<<mesh->vertices.size()<<endl;
     clog<<"triangles: "<<mesh->triangles.size()<<endl;
     
-    raster=bl_raster_new(WIDTH,HEIGHT,1,1);
+    raster=bl_raster_new(WIDTH,HEIGHT,3,1);
 
     switch (mode) {
         case RenderMode::Points:
@@ -368,6 +381,24 @@ int main(int argc,char* argv[])
         
         glClearColor ( 0.9, 0.9, 0.7, 1.0 );
         
+        float Light_Ambient[]=  { 0.5f, 0.5f, 0.5f, 1.0f };
+        float Light_Diffuse[]=  { 1.0f, 1.0f, 1.0f, 1.0f };
+        float Light_Position[]= { 0.0f, 0.0f, -1.0f, 1.0f };
+
+        glLightfv(GL_LIGHT1, GL_POSITION, Light_Position);
+        glLightfv(GL_LIGHT1, GL_AMBIENT,  Light_Ambient);
+        glLightfv(GL_LIGHT1, GL_DIFFUSE,  Light_Diffuse);
+        glEnable (GL_LIGHT1);
+        
+        glEnable(GL_LIGHTING);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glEnable(GL_DEPTH_TEST);
+
+        //glShadeModel(GL_SMOOTH);
+        glShadeModel(GL_FLAT);
+        glPolygonMode(GL_FRONT_AND_BACK,  GL_FILL);
+        
     #else
         SDL_Init(SDL_INIT_EVERYTHING);
         window = SDL_CreateWindow("blaster", 100, 100, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
@@ -397,11 +428,17 @@ int main(int argc,char* argv[])
     double time_total=0;
     
     float angle=0;
-    float aspeed=0.1f;
+    float aspeed=0.01f;
     
     float Z=-30;
+    float Y=0;
     
     bool quit_request=false;
+    
+    bl_pixel_t pick;
+    
+    bool request_data=false;
+    int rx,ry;
     
     while(!quit_request) {
         SDL_Event event;
@@ -411,22 +448,38 @@ int main(int argc,char* argv[])
         while(SDL_PollEvent(&event)) {
 
             switch (event.type) {
-            case SDL_QUIT:
-                clog<<"quit request"<<endl;
-                quit_request=true;
-            break;
+                case SDL_QUIT:
+                    clog<<"quit request"<<endl;
+                    quit_request=true;
+                break;
+                
+                case SDL_MOUSEWHEEL:
+                    if (event.wheel.y>0) {
+                        Z+=5.0f;
+                    }
+                    
+                    if (event.wheel.y<0) {
+                        Z+=-5.0f;
+                    }
+                    
+                break;
+                
+                case SDL_MOUSEBUTTONDOWN:
+                    request_data=true;
+                    rx = event.button.x;
+                    ry = event.button.y;
+                    
+                break;
+                
+                case SDL_KEYDOWN:
+                    if (event.key.keysym.sym==SDLK_UP) {
+                        Y-=1;
+                    }
+                    if (event.key.keysym.sym==SDLK_DOWN) {
+                        Y+=1;
+                    }
+                break;
             
-            case SDL_MOUSEWHEEL:
-                if (event.wheel.y>0) {
-                    Z+=10.0f;
-                }
-                
-                if (event.wheel.y<0) {
-                    Z+=-10.0f;
-                }
-                
-            break;
-
             } // switch
         } // while
         
@@ -439,6 +492,7 @@ int main(int argc,char* argv[])
         #ifdef BACKEND_GL
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         #else
+            raster->start=bl_time_us();
             bl_raster_clear(raster);
         #endif
         
@@ -447,14 +501,16 @@ int main(int argc,char* argv[])
         
         auto t2a = std::chrono::steady_clock::now();
         
+        float aspect=WIDTH/(float)HEIGHT;
+        
         bl_matrix_stack_load_identity(raster->projection);
         bl_matrix_stack_frustum(raster->projection,
-        -1,1,-1,1,1,1000);
+        -aspect,aspect,-1,1,1,100);
         
         bl_matrix_stack_load_identity(raster->modelview);
-        bl_matrix_stack_translate(raster->modelview,0.0f,0.0f,Z);
+        bl_matrix_stack_translate(raster->modelview,0.0f,Y,Z);
 
-        angle+=0.005f;
+        angle+=0.0025f;
         bl_matrix_stack_rotate_y(raster->modelview,angle);
         
         #ifdef BACKEND_GL
@@ -462,7 +518,7 @@ int main(int argc,char* argv[])
             
             glMatrixMode(GL_PROJECTION);
             glLoadIdentity();
-            glFrustum(-1,1,-1,1,1,1000);
+            glFrustum(-aspect,aspect,-1,1,1,100);
             
             glMatrixMode(GL_MODELVIEW);
             glLoadIdentity();
@@ -500,6 +556,7 @@ int main(int argc,char* argv[])
                 break;
         
             }
+        raster->main=bl_time_us();
         //bl_raster_flush_draw(raster);
         //bl_raster_update(raster);
         #endif
@@ -511,14 +568,21 @@ int main(int argc,char* argv[])
         #else
             //bl_raster_update(raster);
             bl_raster_flush_draw(raster);
+            auto t2b2 = std::chrono::steady_clock::now();
             bl_raster_flush_update(raster);
+            
+            if (request_data) {
+                request_data=false;
+                uint16_t depth = bl_texture_get_depth(raster->depth_buffer,rx,ry);
+                cout<<"Depth at: "<<rx<<","<<ry<<": "<<depth<<endl;
+            }
             
         #endif
         
         auto t2c = std::chrono::steady_clock::now();
         
-        time_raster_draw+=std::chrono::duration_cast<std::chrono::microseconds>(t2b-t2a).count();
-        time_raster_update+=std::chrono::duration_cast<std::chrono::microseconds>(t2c-t2b).count();
+        time_raster_draw+=std::chrono::duration_cast<std::chrono::microseconds>(t2b2-t2b).count();
+        time_raster_update+=std::chrono::duration_cast<std::chrono::microseconds>(t2c-t2b2).count();
         
         SDL_Rect rect;
 
@@ -593,8 +657,16 @@ int main(int argc,char* argv[])
             clog<<"other: "<<(1000000-time_input-time_clear-time_raster_draw-time_raster_update-time_upload-time_present)/1000.0<<" ms"<<endl;
             clog<<"total: "<<time_total/1000.0<<" ms"<<endl;
 
+            clog<<endl<<"workers:"<<endl;
+            int num_workers = raster->draw_workers + raster->update_workers;
+            for (int n=0;n<num_workers;n++) {
+                clog<<"["<<(int)raster->workers[n]->type<<"] wait "<<raster->workers[n]->time.wait<<" us, work "<<raster->workers[n]->time.work<<" us"<<" job started at "<<raster->workers[n]->time.start-raster->start<<" and ended at "<<raster->workers[n]->time.last-raster->start<<" us"<<endl;
+                raster->workers[n]->time.wait=0;
+                raster->workers[n]->time.work=0;
+            }
             
-
+            clog<<"flush at "<<raster->main-raster->start<<" us"<<endl;
+            
             dfps=0;
             fps=0;
             time_input=0;
