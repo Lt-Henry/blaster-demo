@@ -532,6 +532,10 @@ int main(int argc,char* argv[])
 
         angle+=0.0025f;
         bl_matrix_stack_rotate_y(raster->modelview,angle);
+
+        bl_matrix_t* mvp=(bl_matrix_t*)raster->uniform;
+        bl_matrix_mult(mvp,raster->projection->matrix,raster->modelview->matrix);
+        memcpy(&mvp[1],raster->modelview->matrix,sizeof(bl_matrix_t));
         
         auto t2b = std::chrono::steady_clock::now();
         
