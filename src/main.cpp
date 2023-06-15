@@ -358,7 +358,7 @@ int main(int argc,char* argv[])
     
     //bl_texture_t* tx = bl_tga_load(argv[2]);
     
-    raster=bl_raster_new(WIDTH,HEIGHT,3,1);
+    raster=bl_raster_new(WIDTH,HEIGHT,2,1);
     
     //bl_raster_set_texture(raster,tx);
 
@@ -533,9 +533,14 @@ int main(int argc,char* argv[])
         angle+=0.0025f;
         bl_matrix_stack_rotate_y(raster->modelview,angle);
 
-        bl_matrix_t* mvp=(bl_matrix_t*)raster->uniform;
-        bl_matrix_mult(mvp,raster->projection->matrix,raster->modelview->matrix);
-        memcpy(&mvp[1],raster->modelview->matrix,sizeof(bl_matrix_t));
+        bl_matrix_t mvp; //modelview * projection matrix
+        bl_matrix_mult(&mvp,raster->projection->matrix,raster->modelview->matrix);
+
+        bl_raster_uniform_set_matrix(raster,0 , &mvp);
+        bl_raster_uniform_set_matrix(raster,1 , raster->modelview->matrix);
+
+        bl_vector_t light_pos = {0.0f,1.0f,-1.0f,0.0f};
+        bl_raster_uniform_set_vector(raster,2,&light_pos);
         
         auto t2b = std::chrono::steady_clock::now();
         
