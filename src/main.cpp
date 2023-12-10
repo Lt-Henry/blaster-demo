@@ -24,8 +24,8 @@
 
 using namespace std;
 
-#define WIDTH 800
-#define HEIGHT 600
+#define WIDTH 1024
+#define HEIGHT 768
 
 enum class RenderMode {
     Points,
@@ -120,6 +120,7 @@ Mesh* load_obj(char* filename)
             n.z=stof(tmp[3]);
             n.w=0;
             
+            bl_vector_normalize(&n);
             mesh->normals.push_back(n);
         }
         
@@ -138,17 +139,17 @@ Mesh* load_obj(char* filename)
             vector<string> tmp2 = split(tmp[1],'/');
             //clog<<">>"<<tmp2[0]<<","<<tmp2[1]<<endl;
             tri.v[0]=stoi(tmp2[0])-1;
-            //tri.t[0]=stoi(tmp2[1])-1;
+            tri.t[0]=stoi(tmp2[1])-1;
             tri.n[0]=stoi(tmp2[2])-1;
             
             tmp2 = split(tmp[2],'/');
             tri.v[1]=stoi(tmp2[0])-1;
-            //tri.t[1]=stoi(tmp2[1])-1;
+            tri.t[1]=stoi(tmp2[1])-1;
             tri.n[1]=stoi(tmp2[2])-1;
             
             tmp2 = split(tmp[3],'/');
             tri.v[2]=stoi(tmp2[0])-1;
-            //tri.t[2]=stoi(tmp2[1])-1;
+            tri.t[2]=stoi(tmp2[1])-1;
             tri.n[2]=stoi(tmp2[2])-1;
             
             mesh->triangles.push_back(tri);
@@ -235,10 +236,10 @@ bl_vbo_t* build_triangles_vbo(Mesh* mesh)
     struct point_t {
         bl_vector_t p;
         bl_vector_t n;
-        bl_color_t c;
+        bl_uv_t t;
     };
     
-    vbo=bl_vbo_new(mesh->triangles.size()*3,12);
+    vbo=bl_vbo_new(mesh->triangles.size()*3,10); //4,4,2
     
     int m=0;
     for (size_t n=0;n<mesh->triangles.size();n++) {
@@ -246,16 +247,18 @@ bl_vbo_t* build_triangles_vbo(Mesh* mesh)
         
         point.p=mesh->vertices[mesh->triangles[n].v[0]];
         point.n=mesh->normals[mesh->triangles[n].n[0]];
+        point.t=mesh->uvs[mesh->triangles[n].t[0]];
         bl_vbo_set_v(vbo,m,&point);
         
         point.p=mesh->vertices[mesh->triangles[n].v[1]];
         point.n=mesh->normals[mesh->triangles[n].n[1]];
+        point.t=mesh->uvs[mesh->triangles[n].t[1]];
         bl_vbo_set_v(vbo,m+1,&point);
 
         point.p=mesh->vertices[mesh->triangles[n].v[2]];
         point.n=mesh->normals[mesh->triangles[n].n[2]];
+        point.t=mesh->uvs[mesh->triangles[n].t[2]];
         bl_vbo_set_v(vbo,m+2,&point);
-
         
         m+=3;
     }
@@ -358,7 +361,7 @@ int main(int argc,char* argv[])
     
     //bl_texture_t* tx = bl_tga_load(argv[2]);
     
-    raster=bl_raster_new(WIDTH,HEIGHT,2,1);
+    raster=bl_raster_new(WIDTH,HEIGHT,3,1);
     
     //bl_raster_set_texture(raster,tx);
 
@@ -539,7 +542,8 @@ int main(int argc,char* argv[])
         bl_raster_uniform_set_matrix(raster,0 , &mvp);
         bl_raster_uniform_set_matrix(raster,1 , raster->modelview->matrix);
 
-        bl_vector_t light_pos = {0.0f,1.0f,-1.0f,0.0f};
+        bl_vector_t light_pos = {0.0f,1.0f,4.0f,0.0f};
+        bl_vector_normalize(&light_pos);
         bl_raster_uniform_set_vector(raster,2,&light_pos);
         
         auto t2b = std::chrono::steady_clock::now();
