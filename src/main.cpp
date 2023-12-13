@@ -358,12 +358,13 @@ int main(int argc,char* argv[])
     
     clog<<"vertices: "<<mesh->vertices.size()<<endl;
     clog<<"triangles: "<<mesh->triangles.size()<<endl;
+
+    raster=bl_raster_new(WIDTH,HEIGHT,4,1);
     
-    //bl_texture_t* tx = bl_tga_load(argv[2]);
-    
-    raster=bl_raster_new(WIDTH,HEIGHT,3,1);
-    
-    //bl_raster_set_texture(raster,tx);
+    if (argc>2) {
+        bl_texture_t* tx = bl_tga_load(argv[2]);
+        bl_raster_set_texture(raster,tx);
+    }
 
     switch (mode) {
         case RenderMode::Points:
