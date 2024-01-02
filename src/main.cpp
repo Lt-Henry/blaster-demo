@@ -1,6 +1,4 @@
 
-//#define BACKEND_GL
-
 #include <blaster/raster.h>
 #include <blaster/vector.h>
 #include <blaster/vbo.h>
@@ -11,10 +9,6 @@
 
 #include <iostream>
 #include <string>
-
-#ifdef BACKEND_GL
-    #include <GL/glew.h>
-#endif
 
 #include <iostream>
 #include <fstream>
@@ -266,72 +260,6 @@ bl_vbo_t* build_triangles_vbo(Mesh* mesh)
     return vbo;
 }
 
-#ifdef BACKEND_GL
-
-void gl_render_points(bl_vbo_t* vbo)
-{
-    float* p=(float*)vbo->data;
-
-    glBegin(GL_POINTS);
-        
-    for (int n=0;n<vbo->size;n++) {
-        glVertex3fv(p);
-        glColor3fv(p+4);
-        p+=8;
-    }
-    
-    glEnd();
-}
-
-void gl_render_lines(bl_vbo_t* vbo)
-{
-    float* p=(float*)vbo->data;
-
-    glBegin(GL_LINES);
-        
-        for (int n=0;n<vbo->size;n+=2) {
-            glVertex3fv(p);
-            glColor3fv(p+4);
-            p+=8;
-            
-            glVertex3fv(p);
-            glColor3fv(p+4);
-            p+=8;
-
-        }
-
-    glEnd();
-}
-
-void gl_render_triangles(bl_vbo_t* vbo)
-{
-    float* p=(float*)vbo->data;
-    
-    glBegin(GL_TRIANGLES);
-    for (int n=0;n<vbo->size;n+=3) {
-        glVertex3fv(p);
-        glNormal3fv(p+4);
-        glColor3fv(p+8);
-        
-        p+=12;
-        
-        glVertex3fv(p);
-        glNormal3fv(p+4);
-        glColor3fv(p+8);
-        
-        p+=12;
-        
-        glVertex3fv(p);
-        glNormal3fv(p+4);
-        glColor3fv(p+8);
-        
-        p+=12;
-    }
-    glEnd();
-}
-
-#endif
-
 void print_time(string name,double value,int fps)
 {
     double f=1.0/1000.0;
@@ -359,7 +287,7 @@ int main(int argc,char* argv[])
     clog<<"vertices: "<<mesh->vertices.size()<<endl;
     clog<<"triangles: "<<mesh->triangles.size()<<endl;
 
-    raster=bl_raster_new(WIDTH,HEIGHT,4,1);
+    raster=bl_raster_new(WIDTH,HEIGHT,3,1);
     
     if (argc>2) {
         bl_texture_t* tx = bl_tga_load(argv[2]);
@@ -381,60 +309,17 @@ int main(int argc,char* argv[])
     
     }
 
-        #ifdef BACKEND_GL
-    
-        SDL_Init(SDL_INIT_EVERYTHING);
-        
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-        
-        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-        SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-        
-        window = SDL_CreateWindow("blaster-gl", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
-        
-        gl = SDL_GL_CreateContext(window);
-        
-        glViewport(0,0,WIDTH,HEIGHT);
-        
-        //disable vsync
-        SDL_GL_SetSwapInterval(0);
-        glewExperimental = GL_TRUE;
-        glewInit();
-        
-        glClearColor ( 0.9, 0.9, 0.7, 1.0 );
-        
-        float Light_Ambient[]=  { 0.5f, 0.5f, 0.5f, 1.0f };
-        float Light_Diffuse[]=  { 1.0f, 1.0f, 1.0f, 1.0f };
-        float Light_Position[]= { 0.0f, 0.0f, -1.0f, 1.0f };
 
-        glLightfv(GL_LIGHT1, GL_POSITION, Light_Position);
-        glLightfv(GL_LIGHT1, GL_AMBIENT,  Light_Ambient);
-        glLightfv(GL_LIGHT1, GL_DIFFUSE,  Light_Diffuse);
-        glEnable (GL_LIGHT1);
-        
-        glEnable(GL_LIGHTING);
-        glEnable(GL_CULL_FACE);
-        glCullFace(GL_BACK);
-        glEnable(GL_DEPTH_TEST);
+    SDL_Init(SDL_INIT_EVERYTHING);
+    window = SDL_CreateWindow("blaster", 100, 100, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    texture = SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, WIDTH,HEIGHT);
 
-        //glShadeModel(GL_SMOOTH);
-        glShadeModel(GL_FLAT);
-        glPolygonMode(GL_FRONT_AND_BACK,  GL_FILL);
-        
-    #else
-        SDL_Init(SDL_INIT_EVERYTHING);
-        window = SDL_CreateWindow("blaster", 100, 100, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
-        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-        texture = SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, WIDTH,HEIGHT);
-        
-        bl_color_t clear_color;
-        bl_color_set(&clear_color,0.9,0.9,0.9,1.0);
-        
-        bl_raster_set_clear_color(raster,&clear_color);
-    #endif
-    
+    bl_color_t clear_color;
+    bl_color_set(&clear_color,0.9,0.9,0.9,1.0);
+
+    bl_raster_set_clear_color(raster,&clear_color);
+
     auto tfps = std::chrono::steady_clock::now();
     
     double dfps=0;
@@ -513,13 +398,9 @@ int main(int argc,char* argv[])
         //render here
         auto t1 = std::chrono::steady_clock::now();
         
-        #ifdef BACKEND_GL
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        #else
-            raster->start=bl_time_us();
-            bl_raster_clear(raster);
-        #endif
-        
+        raster->start=bl_time_us();
+        bl_raster_clear(raster);
+
         auto t2 = std::chrono::steady_clock::now();
         time_clear+=std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
         
@@ -548,73 +429,34 @@ int main(int argc,char* argv[])
         bl_raster_uniform_set_vector(raster,2,&light_pos);
         
         auto t2b = std::chrono::steady_clock::now();
-        
-        #ifdef BACKEND_GL
 
-            
-            glMatrixMode(GL_PROJECTION);
-            glLoadIdentity();
-            glFrustum(-aspect,aspect,-1,1,1,100);
-            
-            glMatrixMode(GL_MODELVIEW);
-            glLoadIdentity();
-            glTranslatef(0,0,Z);
-            glRotatef(angle/3.1416f*180.0f,0,1,0);
-            
-            switch (mode) {
-                case RenderMode::Points:
-                    gl_render_points(vbo);
-                break;
-                
-                case RenderMode::Lines:
-                    gl_render_lines(vbo);
-                break;
-                
-                case RenderMode::Triangles:
-                    gl_render_triangles(vbo);
-                break;
-        
-            }
-                auto t2b2 = std::chrono::steady_clock::now();
-                
-        #else
-            
-            switch (mode) {
-                case RenderMode::Points:
-                    bl_raster_draw(raster,vbo,BL_VBO_POINTS);
-                break;
-                
-                case RenderMode::Lines:
-                    bl_raster_draw(raster,vbo,BL_VBO_LINES);
-                break;
-                
-                case RenderMode::Triangles:
-                    bl_raster_draw(raster,vbo,BL_VBO_TRIANGLES);
-                break;
-        
-            }
+        switch (mode) {
+            case RenderMode::Points:
+                bl_raster_draw(raster,vbo,BL_VBO_POINTS);
+            break;
+
+            case RenderMode::Lines:
+                bl_raster_draw(raster,vbo,BL_VBO_LINES);
+            break;
+
+            case RenderMode::Triangles:
+                bl_raster_draw(raster,vbo,BL_VBO_TRIANGLES);
+            break;
+
+        }
         raster->main=bl_time_us();
         //bl_raster_flush_draw(raster);
         //bl_raster_update(raster);
-        #endif
-        
-        
-        
-        #ifdef BACKEND_GL
-        
-        #else
             //bl_raster_update(raster);
-            bl_raster_flush_draw(raster);
-            auto t2b2 = std::chrono::steady_clock::now();
-            bl_raster_flush_update(raster);
-            
-            if (request_data) {
-                request_data=false;
-                uint16_t depth = bl_texture_get_depth(raster->depth_buffer,rx,ry);
-                cout<<"Depth at: "<<rx<<","<<ry<<": "<<depth<<endl;
-            }
-            
-        #endif
+        bl_raster_flush_draw(raster);
+        auto t2b2 = std::chrono::steady_clock::now();
+        bl_raster_flush_update(raster);
+
+        if (request_data) {
+            request_data=false;
+            uint16_t depth = bl_texture_get_depth(raster->depth_buffer,rx,ry);
+            cout<<"Depth at: "<<rx<<","<<ry<<": "<<depth<<endl;
+        }
         
         auto t2c = std::chrono::steady_clock::now();
         
@@ -630,22 +472,14 @@ int main(int argc,char* argv[])
 
         auto t3 = std::chrono::steady_clock::now();
         
-        #ifdef BACKEND_GL
-        
-        #else
-            SDL_UpdateTexture(texture,&rect,(void*)raster->color_buffer->data,WIDTH*sizeof(uint32_t));
-        #endif
+        SDL_UpdateTexture(texture,&rect,(void*)raster->color_buffer->data,WIDTH*sizeof(uint32_t));
         
         auto t4 = std::chrono::steady_clock::now();
         time_upload+=std::chrono::duration_cast<std::chrono::microseconds>(t4-t3).count();
         
-        #ifdef BACKEND_GL
-            SDL_GL_SwapWindow(window);
-        #else
-            SDL_RenderCopy(renderer, texture, NULL, NULL);
-            SDL_RenderPresent(renderer);
-        #endif
-        
+        SDL_RenderCopy(renderer, texture, NULL, NULL);
+        SDL_RenderPresent(renderer);
+
         auto t5 = std::chrono::steady_clock::now();
         time_present+=std::chrono::duration_cast<std::chrono::microseconds>(t5-t4).count();
         time_total+=std::chrono::duration_cast<std::chrono::microseconds>(t5-t0a).count();
@@ -720,11 +554,7 @@ int main(int argc,char* argv[])
     
     
     
-    #ifdef BACKEND_GL
-        SDL_GL_DeleteContext(gl);
 
-    #endif
-    
     bl_raster_delete(raster);
     
     SDL_DestroyWindow(window);
