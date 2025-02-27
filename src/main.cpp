@@ -5,6 +5,8 @@
 #include <blaster/time.h>
 #include <blaster/tga.h>
 
+#include <glm/glm.hpp>
+#include <glm/ext.hpp>
 #include <SDL2/SDL.h>
 
 #include <iostream>
@@ -363,12 +365,12 @@ int main(int argc,char* argv[])
                 break;
                 
                 case SDL_MOUSEWHEEL:
-                    if (event.wheel.y>0) {
-                        Z+=5.0f;
+                    if (event.wheel.y<0) {
+                        Z=Z*1.25f;
                     }
                     
-                    if (event.wheel.y<0) {
-                        Z+=-5.0f;
+                    if (event.wheel.y>0) {
+                        Z=Z/2.0f;
                     }
                     
                 break;
@@ -408,6 +410,7 @@ int main(int argc,char* argv[])
         
         float aspect=WIDTH/(float)HEIGHT;
         
+        /*
         bl_matrix_stack_load_identity(raster->projection);
         bl_matrix_stack_frustum(raster->projection,
         -aspect,aspect,-1,1,1,100);
@@ -422,7 +425,20 @@ int main(int argc,char* argv[])
         bl_matrix_mult(&mvp,raster->projection->matrix,raster->modelview->matrix);
 
         bl_raster_uniform_set_matrix(raster,0 , &mvp);
-        bl_raster_uniform_set_matrix(raster,1 , raster->modelview->matrix);
+        */
+
+        glm::mat4 mprojection = glm::frustum(-aspect,aspect,1.0f,-1.0f,1.0f,100.0f);
+
+        angle+=0.0025f;
+        glm::mat4 mmodel(1.0f);
+        mmodel = glm::translate(mmodel,glm::vec3(0.0f,Y,Z));
+        mmodel = glm::rotate(mmodel,angle,glm::vec3(0.0f,1.0f,0.0f));
+
+        glm::mat4 mvp = mprojection * mmodel;
+
+        bl_raster_uniform_set_matrix(raster,0 , (bl_matrix_t*)&mvp[0][0]);
+        bl_raster_uniform_set_matrix(raster,1 , (bl_matrix_t*)&mmodel[0][0]);
+        //bl_raster_uniform_set_matrix(raster,1 , raster->modelview->matrix);
 
         bl_vector_t light_pos = {0.0f,1.0f,4.0f,0.0f};
         bl_vector_normalize(&light_pos);
@@ -531,9 +547,13 @@ int main(int argc,char* argv[])
             clog<<endl<<"workers:"<<endl;
             int num_workers = raster->draw_workers + raster->update_workers;
             for (int n=0;n<num_workers;n++) {
-                clog<<"["<<(int)raster->workers[n]->type<<"] wait "<<raster->workers[n]->time.wait<<" us, work "<<raster->workers[n]->time.work<<" us"<<" job started at "<<raster->workers[n]->time.start-raster->start<<" and ended at "<<raster->workers[n]->time.last-raster->start<<" us"<<endl;
+                int worker_type = raster->workers[n]->type;
+                clog<<"["<<(int)worker_type<<"] wait "<<raster->workers[n]->time.wait<<" us, work "<<raster->workers[n]->time.work<<" us"<<" job started at "<<raster->workers[n]->time.start-raster->start<<" and ended at "<<raster->workers[n]->time.last-raster->start<<" us"<<endl;
                 raster->workers[n]->time.wait=0;
                 raster->workers[n]->time.work=0;
+                if (worker_type == 1) {
+                    clog<<"Chunks updated: "<<raster->workers[n]->update.chunks<<endl;
+                }
             }
             
             clog<<"flush at "<<raster->main-raster->start<<" us"<<endl;
