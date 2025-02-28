@@ -7,21 +7,21 @@
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
+#include <tiny_gltf.h>
 #include <SDL2/SDL.h>
 
-#include <iostream>
 #include <string>
-
 #include <iostream>
 #include <fstream>
 #include <vector>
 #include <chrono>
 #include <list>
+#include <memory>
 
 using namespace std;
 
-#define WIDTH 1024
-#define HEIGHT 768
+#define WIDTH 1920
+#define HEIGHT 1080
 
 enum class RenderMode {
     Points,
@@ -262,6 +262,54 @@ bl_vbo_t* build_triangles_vbo(Mesh* mesh)
     return vbo;
 }
 
+bool load_gltf(tinygltf::Model &model, const char *filename) {
+    tinygltf::TinyGLTF loader;
+    std::string err;
+    std::string warn;
+
+    bool res = loader.LoadASCIIFromFile(&model, &err, &warn, filename);
+    if (!warn.empty()) {
+    std::clog << "WARN: " << warn << std::endl;
+    }
+
+    if (!err.empty()) {
+    std::clog << "ERR: " << err << std::endl;
+    }
+
+    if (!res)
+    std::clog << "Failed to load glTF: " << filename << std::endl;
+    else
+    std::clog << "Loaded glTF: " << filename << std::endl;
+
+    return res;
+}
+
+bl_vbo_t* build_vbo(tinygltf::Model &model)
+{
+    bl_vbo_t* vbo = nullptr;
+
+    for (tinygltf::BufferView& bv : model.bufferViews) {
+        clog<<"buffer "<<bv.buffer<<endl;
+        clog<<"\toffset "<<bv.byteOffset<<endl;
+        clog<<"\tsize "<<bv.byteLength<<endl;
+        clog<<"\ttarget "<<bv.target<<endl;
+    }
+
+    for (tinygltf::Accessor& ac : model.accessors) {
+        //clog<<"accesor "<<ac.name<<endl;
+    }
+
+    for (tinygltf::Mesh& mesh : model.meshes) {
+        for (tinygltf::Primitive& primitive : mesh.primitives) {
+            for (auto k : primitive.attributes) {
+                clog<<"* "<<k.first<<":"<<k.second<<endl;
+            }
+        }
+    }
+
+    return vbo;
+}
+
 void print_time(string name,double value,int fps)
 {
     double f=1.0/1000.0;
@@ -283,6 +331,25 @@ int main(int argc,char* argv[])
     //RenderMode mode = RenderMode::Lines;
     
     clog<<"Blaster-demo"<<endl;
+
+
+    if (argc<2) {
+        cerr<<"Missing GLTF file"<<endl;
+        return -1;
+    }
+
+    tinygltf::Model model;
+
+    if (!load_gltf(model,argv[1])) {
+        cerr<<"Failed to load gltf file"<<endl;
+        return -1;
+    }
+
+    clog<<"meshes: "<<model.meshes.size()<<endl;
+
+    vbo = build_vbo(model);
+
+    return 0;
     
     Mesh* mesh = load_obj(argv[1]);
     
