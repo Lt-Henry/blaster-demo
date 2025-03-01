@@ -284,30 +284,137 @@ bool load_gltf(tinygltf::Model &model, const char *filename) {
     return res;
 }
 
-bl_vbo_t* build_vbo(tinygltf::Model &model)
+vector<bl_vbo_t*> build_vbo(tinygltf::Model &model)
 {
-    bl_vbo_t* vbo = nullptr;
-
-    for (tinygltf::BufferView& bv : model.bufferViews) {
-        clog<<"buffer "<<bv.buffer<<endl;
-        clog<<"\toffset "<<bv.byteOffset<<endl;
-        clog<<"\tsize "<<bv.byteLength<<endl;
-        clog<<"\ttarget "<<bv.target<<endl;
-    }
-
-    for (tinygltf::Accessor& ac : model.accessors) {
-        //clog<<"accesor "<<ac.name<<endl;
-    }
+    vector<bl_vbo_t*> vbos;
 
     for (tinygltf::Mesh& mesh : model.meshes) {
+        clog<<"Mesh:"<<endl;
         for (tinygltf::Primitive& primitive : mesh.primitives) {
-            for (auto k : primitive.attributes) {
-                clog<<"* "<<k.first<<":"<<k.second<<endl;
+
+            if (primitive.mode == TINYGLTF_MODE_TRIANGLES) {
+                tinygltf::Accessor iaccessor = model.accessors[primitive.indices];
+
+                if (!(iaccessor.type == TINYGLTF_TYPE_SCALAR and iaccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)) {
+                    clog<<"Unhandled index format"<<endl;
+                    continue;
+                }
+
+                tinygltf::BufferView iview = model.bufferViews[iaccessor.bufferView];
+                tinygltf::Buffer ibuffer = model.buffers[iview.buffer];
+                uint8_t* ptr = (uint8_t*) ibuffer.data.data();
+                ptr = ptr + iview.byteOffset + iaccessor.byteOffset;
+                uint32_t* indices = (uint32_t*) ptr;
+
+                clog<<"triangles: "<<iaccessor.count/3<<endl;
+
+                vector<float> positions;
+                vector<float> normals;
+                vector<float> uvs;
+
+                for (auto k : primitive.attributes) {
+                    tinygltf::Accessor accessor = model.accessors[k.second];
+                    tinygltf::BufferView view = model.bufferViews[accessor.bufferView];
+                    tinygltf::Buffer buffer = model.buffers[view.buffer];
+
+                    if (k.first == "POSITION") {
+                        if (!(accessor.type == TINYGLTF_TYPE_VEC3 and accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)) {
+                            clog<<"Unhandled format"<<endl;
+                            continue;
+                        }
+
+                        uint8_t* fptr = (uint8_t*) buffer.data.data();
+                        fptr = fptr + view.byteOffset + accessor.byteOffset;
+                        float* data = (float*) fptr;
+                        clog<<"vertices:"<<accessor.count<<endl;
+                        for (size_t n=0;n<accessor.count;n++) {
+                            positions.push_back(data[0]);
+                            positions.push_back(data[1]);
+                            positions.push_back(data[2]);
+                            data+=3;
+                        }
+                    }
+
+                    if (k.first == "NORMAL") {
+                        if (!(accessor.type == TINYGLTF_TYPE_VEC3 and accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)) {
+                            clog<<"Unhandled format"<<endl;
+                            continue;
+                        }
+
+                        uint8_t* fptr = (uint8_t*) buffer.data.data();
+                        fptr = fptr + view.byteOffset + accessor.byteOffset;
+                        float* data = (float*) fptr;
+                        clog<<"normals:"<<accessor.count<<endl;
+                        for (size_t n=0;n<accessor.count;n++) {
+                            normals.push_back(data[0]);
+                            normals.push_back(data[1]);
+                            normals.push_back(data[2]);
+                            data+=3;
+                        }
+                    }
+
+                    if (k.first == "TEXCOORD_0") {
+                        if (!(accessor.type == TINYGLTF_TYPE_VEC2 and accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)) {
+                            clog<<"Unhandled format"<<endl;
+                            continue;
+                        }
+
+                        uint8_t* fptr = (uint8_t*) buffer.data.data();
+                        fptr = fptr + view.byteOffset + accessor.byteOffset;
+                        float* data = (float*) fptr;
+                        clog<<"uvs:"<<accessor.count<<endl;
+                        for (size_t n=0;n<accessor.count;n++) {
+                            uvs.push_back(data[0]);
+                            uvs.push_back(data[1]);
+                            data+=2;
+                        }
+                    }
+
+                }
+
+                struct point_t {
+                    bl_vector_t p;
+                    bl_vector_t n;
+                    bl_uv_t t;
+                };
+
+                bl_vbo_t* vbo = bl_vbo_new(iaccessor.count,10); //4,4,2
+
+                for (size_t i=0;i<iaccessor.count;i+=3) {
+
+                    point_t point;
+
+                    for (size_t j=0;j<3;j++) {
+                        uint32_t index = indices[i+j];
+                        uint32_t vindex = index * 3;
+                        point.p.x = positions[vindex];
+                        point.p.y = positions[vindex+1];
+                        point.p.z = positions[vindex+2];
+                        point.p.w = 1;
+
+                        point.n.x = normals[vindex];
+                        point.n.y = normals[vindex+1];
+                        point.n.z = normals[vindex+2];
+                        point.n.w = 0;
+
+                        vindex = index * 2;
+                        point.t.u = uvs[vindex];
+                        point.t.v = uvs[vindex+1];
+
+                        bl_vbo_set_v(vbo,i+j,&point);
+                    }
+                }
+
+                vbos.push_back(vbo);
+
+            }
+            else {
+                clog<<"Unhandled mode:"<<primitive.mode<<endl;
             }
         }
     }
 
-    return vbo;
+    return vbos;
 }
 
 void print_time(string name,double value,int fps)
@@ -325,7 +432,7 @@ int main(int argc,char* argv[])
     SDL_GLContext gl;
     
     bl_raster_t* raster;
-    bl_vbo_t* vbo;
+    vector<bl_vbo_t*> vbos;
     
     RenderMode mode = RenderMode::Triangles;
     //RenderMode mode = RenderMode::Lines;
@@ -347,35 +454,15 @@ int main(int argc,char* argv[])
 
     clog<<"meshes: "<<model.meshes.size()<<endl;
 
-    vbo = build_vbo(model);
+    vbos = build_vbo(model);
 
-    return 0;
-    
-    Mesh* mesh = load_obj(argv[1]);
-    
-    clog<<"vertices: "<<mesh->vertices.size()<<endl;
-    clog<<"triangles: "<<mesh->triangles.size()<<endl;
+
 
     raster=bl_raster_new(WIDTH,HEIGHT,3,1);
     
     if (argc>2) {
         bl_texture_t* tx = bl_tga_load(argv[2]);
         bl_raster_set_texture(raster,tx);
-    }
-
-    switch (mode) {
-        case RenderMode::Points:
-            vbo=build_points_vbo(mesh);
-        break;
-        
-        case RenderMode::Lines:
-            vbo=build_lines_vbo(mesh);
-        break;
-        
-        case RenderMode::Triangles:
-            vbo=build_triangles_vbo(mesh);
-        break;
-    
     }
 
 
@@ -494,7 +581,7 @@ int main(int argc,char* argv[])
         bl_raster_uniform_set_matrix(raster,0 , &mvp);
         */
 
-        glm::mat4 mprojection = glm::frustum(-aspect,aspect,1.0f,-1.0f,1.0f,100.0f);
+        glm::mat4 mprojection = glm::frustum(-aspect,aspect,1.0f,-1.0f,1.0f,1000.0f);
 
         angle+=0.0025f;
         glm::mat4 mmodel(1.0f);
@@ -513,20 +600,10 @@ int main(int argc,char* argv[])
         
         auto t2b = std::chrono::steady_clock::now();
 
-        switch (mode) {
-            case RenderMode::Points:
-                bl_raster_draw(raster,vbo,BL_VBO_POINTS);
-            break;
-
-            case RenderMode::Lines:
-                bl_raster_draw(raster,vbo,BL_VBO_LINES);
-            break;
-
-            case RenderMode::Triangles:
-                bl_raster_draw(raster,vbo,BL_VBO_TRIANGLES);
-            break;
-
+        for (bl_vbo_t* vbo:vbos) {
+            bl_raster_draw(raster,vbo,BL_VBO_TRIANGLES);
         }
+
         raster->main=bl_time_us();
         //bl_raster_flush_draw(raster);
         //bl_raster_update(raster);
